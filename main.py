@@ -1,142 +1,143 @@
 #!/usr/bin/env python3
-# main.py  –  3-hidden-layer MLP for the WDBC breast-cancer dataset
-from math import exp, sqrt
-import random, csv, math, pathlib
+"""A small 3‑hidden‑layer MLP for the Breast‑Cancer WDBC data.
+   Progress lines now follow the Keras‑style format:
+   epoch N/70 - loss: x.xxxx - val_loss: y.yyyy
+"""
+from __future__ import annotations
+from math import exp, sqrt, log
+import csv, math, pathlib, random, sys
 
+# ───────────────────── vector helpers ────────────────────────────────────────
 
-# ───────────────────── low-level helpers ─────────────────────────────────────
-def dot_product(w, x):
-    if not w or not x or len(w[0]) != len(x):
-        raise ValueError("Incompatible dimensions for W · x")
-    return [sum(wi * xi for wi, xi in zip(w_row, x)) for w_row in w]
+def dot(w, x):
+    """Matrix–vector dot product (row‑major)."""
+    return [sum(wij * xj for wij, xj in zip(w_row, x)) for w_row in w]
 
-
-def add_vector(a, b):
-    if len(a) != len(b):
-        raise ValueError("Vectors must have the same length")
+def add(a, b):
     return [ai + bi for ai, bi in zip(a, b)]
 
-
-# numerically-stable logistic sigmoid
 def sigmoid(z: float) -> float:
     if z >= 0:
         ez = exp(-z)
         return 1.0 / (1.0 + ez)
-    else:
-        ez = exp(z)
-        return ez / (1.0 + ez)
+    ez = exp(z)
+    return ez / (1.0 + ez)
 
-
-def vector_sigmoid(vec):
-    return [sigmoid(v) for v in vec]
-
+def vec_sigmoid(v):
+    return [sigmoid(z) for z in v]
 
 def sigmoid_prime(z):
     s = sigmoid(z)
     return s * (1.0 - s)
 
-
-# numerically-stable soft-max
-def vector_softmax(vec):
-    m = max(vec)
-    exps = [exp(v - m) for v in vec]
+def softmax(v):
+    m = max(v)
+    exps = [exp(z - m) for z in v]
     s = sum(exps)
     return [e / s for e in exps]
-
 
 def outer(col, row):
     return [[c * r for r in row] for c in col]
 
+# ───────────────────── forward / back‑prop ───────────────────────────────────
 
-# ───────────────────── forward / backward passes ─────────────────────────────
-def forward(weights, biases, x):
+def forward(W, b, x):
     zs, activs = [], [x]
-    for k,(w,b) in enumerate(zip(weights,biases), 1):
-        z = add_vector(dot_product(w, activs[-1]), b)
-        a = vector_softmax(z) if k == len(weights) else vector_sigmoid(z)
-        zs.append(z); activs.append(a)
+    for k, (w, bi) in enumerate(zip(W, b), 1):
+        z = add(dot(w, activs[-1]), bi)
+        a = softmax(z) if k == len(W) else vec_sigmoid(z)
+        zs.append(z)
+        activs.append(a)
     return zs, activs
 
-def backprop(weights, biases, x, y, lr):
-    zs, as_ = forward(weights, biases, x)
-    delta = [as_[-1][k] - y[k] for k in range(len(y))]          # output layer
-
-    for l in reversed(range(len(weights))):
-        grad_w = outer(delta, as_[l])
-        for i in range(len(weights[l])):
-            for j in range(len(weights[l][0])):
-                weights[l][i][j] -= lr * grad_w[i][j]
-            biases[l][i] -= lr * delta[i]
-
-        if l:                               # back-prop to previous layer
-            wt = list(zip(*weights[l]))     # Wᵗ
-            delta = [sum(wt_i[k]*delta[k] for k in range(len(delta)))
-                     * sigmoid_prime(zs[l-1][i])
+def backprop(W, b, x, y, lr):
+    zs, a = forward(W, b, x)
+    delta = [a[-1][k] - y[k] for k in range(len(y))]  # output layer
+    for l in reversed(range(len(W))):
+        grad_w = outer(delta, a[l])
+        # update
+        for i in range(len(W[l])):
+            for j in range(len(W[l][0])):
+                W[l][i][j] -= lr * grad_w[i][j]
+            b[l][i] -= lr * delta[i]
+        if l:
+            wt = list(zip(*W[l]))  # transpose
+            delta = [sum(wt_i[k] * delta[k] for k in range(len(delta))) * sigmoid_prime(zs[l - 1][i])
                      for i, wt_i in enumerate(wt)]
 
+# ───────────────────── utilities ─────────────────────────────────────────────
 
-# ───────────────────── random initialisers ───────────────────────────────────
-def glorot(rows, cols):
-    limit = sqrt(6/(rows+cols))
+def glorot(rows: int, cols: int):
+    limit = sqrt(6 / (rows + cols))
     return [[random.uniform(-limit, limit) for _ in range(cols)] for _ in range(rows)]
 
-def rand_vec(n): return [random.uniform(-0.1,0.1) for _ in range(n)]
+def rand_vec(n):
+    return [random.uniform(-0.1, 0.1) for _ in range(n)]
 
+def cross_entropy(pred, target, eps: float = 1e-15):
+    return -sum(t * log(max(p, eps)) for p, t in zip(pred, target))
 
-# ───────────────────── CSV loader ────────────────────────────────────────────
-def load_wdbc(path, expect=30):
-    ids,lbl,feat=[],[],[]
-    with open(path,newline='') as f:
-        for ln,row in enumerate(csv.reader(f),1):
-            if not row: continue
-            if len(row)!=2+expect: raise ValueError(f"Line {ln}: wrong cols")
-            ids.append(row[0]); lbl.append(1 if row[1].strip().upper()=="M" else 0)
+# ───────────────────── data loader ───────────────────────────────────────────
+
+def load_wdbc(path: pathlib.Path, expect: int = 30):
+    ids, lbl, feat = [], [], []
+    with open(path, newline="") as f:
+        for ln, row in enumerate(csv.reader(f), 1):
+            if not row:
+                continue
+            if len(row) != 2 + expect:
+                raise ValueError(f"Line {ln}: expected {2 + expect} cols, got {len(row)}")
+            ids.append(row[0])
+            lbl.append(1 if row[1].strip().upper() == "M" else 0)
             feat.append([float(x) for x in row[2:]])
-    return ids,lbl,feat
+    return ids, lbl, feat
 
+# ───────────────────── main ─────────────────────────────────────────────────
 
-# ───────────────────── main ──────────────────────────────────────────────────
-if __name__ == "__main__":
-    CSV_PATH   = pathlib.Path("data.csv")
-    HIDDEN     = [64,32,16]
-    LR         = 0.02
-    EPOCHS     = 20
-    TEST_SPLIT = 0.20
+def main(argv: list[str] | None = None):
+    CSV_PATH = pathlib.Path("data.csv")
+    HIDDEN = [64, 32, 16]
+    LR = 0.02
+    EPOCHS = 20
+    TEST_SPLIT = 0.2
     random.seed(42)
 
-    ids,lbl,feat = load_wdbc(CSV_PATH)
+    ids, y, X = load_wdbc(CSV_PATH)
 
-    # z-score standardise
-    cols = list(zip(*feat))
-    means = [sum(c)/len(c) for c in cols]
-    stds  = [math.sqrt(sum((x-m)**2 for x in c)/len(c)) for c,m in zip(cols,means)]
-    feat  = [[(x-m)/(s or 1) for x,m,s in zip(r,means,stds)] for r in feat]
+    # z‑score standardisation
+    cols = list(zip(*X))
+    means = [sum(c) / len(c) for c in cols]
+    stds = [math.sqrt(sum((v - m) ** 2 for v in c) / len(c)) for c, m in zip(cols, means)]
+    X = [[(v - m) / (s or 1) for v, m, s in zip(r, means, stds)] for r in X]
 
-    # shuffle & split
-    data=list(zip(ids,feat,lbl)); random.shuffle(data)
-    split = int(len(data)*(1-TEST_SPLIT))
-    train,test = data[:split],data[split:]
-    Xtr,Ytr = [f for _,f,_ in train],[y for *_,y in train]
-    Xte,Yte = [f for _,f,_ in test ],[y for *_,y in test ]
+    data = list(zip(X, y))
+    random.shuffle(data)
+    split = int(len(data) * (1 - TEST_SPLIT))
+    train, val = data[:split], data[split:]
+    Xtr, Ytr = [x for x, _ in train], [y for _, y in train]
+    Xval, Yval = [x for x, _ in val], [y for _, y in val]
 
-    # net shapes
-    sizes=[len(Xtr[0])]+HIDDEN+[2]      # 2-class soft-max
-    W=[glorot(o,i) for i,o in zip(sizes[:-1],sizes[1:])]
-    b=[rand_vec(s) for s in sizes[1:]]
+    sizes = [len(Xtr[0])] + HIDDEN + [2]
+    W = [glorot(o, i) for i, o in zip(sizes[:-1], sizes[1:])]
+    b = [rand_vec(s) for s in sizes[1:]]
 
-    # one-hot with *matching indices*  (label 0→[1,0], label 1→[0,1])
-    oh = lambda y: [1,0] if y==0 else [0,1]
+    # one‑hot where label 0→[1,0], label 1→[0,1]
+    one_hot = lambda lbl: [1, 0] if lbl == 0 else [0, 1]
 
-    # training
-    for epoch in range(1,EPOCHS+1):
-        for x,y in random.sample(list(zip(Xtr,Ytr)), len(Xtr)):
-            backprop(W,b,x,oh(y),LR)
+    # training loop ---------------------------------------------------------
+    for epoch in range(1, EPOCHS + 1):
+        for x_vec, lbl in random.sample(list(zip(Xtr, Ytr)), len(Xtr)):
+            backprop(W, b, x_vec, one_hot(lbl), LR)
 
-        preds=[forward(W,b,x)[1][-1].index(max(forward(W,b,x)[1][-1])) for x in Xtr]
-        acc=sum(p==y for p,y in zip(preds,Ytr))/len(Ytr)
-        print(f"Epoch {epoch:3d}/{EPOCHS} — train acc: {acc:.3%}")
+        # ------- metrics ----------------------------------------------------
+        tr_loss = sum(cross_entropy(forward(W, b, x)[1][-1], one_hot(y)) for x, y in zip(Xtr, Ytr)) / len(Xtr)
+        val_loss = sum(cross_entropy(forward(W, b, x)[1][-1], one_hot(y)) for x, y in zip(Xval, Yval)) / len(Xval)
+        print(f"epoch {epoch:2d}/{EPOCHS} - loss: {tr_loss:.4f} - val_loss: {val_loss:.4f}")
 
-    # test
-    preds=[forward(W,b,x)[1][-1].index(max(forward(W,b,x)[1][-1])) for x in Xte]
-    acc=sum(p==y for p,y in zip(preds,Yte))/len(Yte)
-    print(f"\nTest accuracy: {acc:.3%} on {len(Yte)} samples")
+    # final evaluation ------------------------------------------------------
+    preds = [forward(W, b, x)[1][-1].index(max(forward(W, b, x)[1][-1])) for x in Xval]
+    acc = sum(p == y for p, y in zip(preds, Yval)) / len(Yval)
+    print(f"\nValidation accuracy: {acc:.3%} on {len(Yval)} samples")
+
+if __name__ == "__main__":
+    sys.exit(main())
