@@ -20,10 +20,25 @@ def forward(X, W, b):
         A = softmax(Z) if i == len(W)-1 else stable_sigmoid(Z)
     return A
 
+import numpy as np
+
 def cross_entropy(pred, y_hot):
     eps = 1e-12
-    pred = np.clip(pred, eps, 1-eps)
-    return -np.mean(np.sum(y_hot*np.log(pred), axis=1))
+    total_loss = 0.0
+    N = len(pred)
+
+    for i in range(N):
+        p_M, p_B = pred[i]
+        y_M, y_B = y_hot[i]
+
+        p_M = max(min(p_M, 1-eps), eps)
+        p_B = max(min(p_B, 1-eps), eps)
+
+        sample_loss = - (y_M * np.log(p_M) + y_B * np.log(p_B))
+        total_loss += sample_loss
+
+    return total_loss / N
+
 
 def sigmoid_prime(a: np.ndarray) -> np.ndarray:
     """Derivative w.r.t. the *activation* (already σ(z))."""
