@@ -1,24 +1,5 @@
-#!/usr/bin/env python3
-"""
-split.py — split the original WDBC CSV into training / validation (and optionally
-a test) subsets, storing each subset as its own CSV file.
-
-Example
--------
-$ python split.py --input data.csv --train train.csv --valid valid.csv \
-                  --test test.csv --val_ratio 0.2 --test_ratio 0.0 --seed 42
-
-The script shuffles the rows reproducibly (with the given seed), then writes the
-requested output files and prints a short summary.
-"""
-import csv
-import argparse
-import random
-import pathlib
+import csv, argparse, random, pathlib
 from typing import List
-
-
-# ────────────────────────── helpers ──────────────────────────
 
 def _read_rows(path: pathlib.Path) -> List[List[str]]:
     """Return *all* non‑empty CSV rows as a list of lists."""
@@ -33,9 +14,6 @@ def _write_rows(rows: List[List[str]], path: pathlib.Path) -> None:
         writer = csv.writer(f)
         writer.writerows(rows)
 
-
-# ─────────────────────────── main ────────────────────────────
-
 def main() -> None:
     p = argparse.ArgumentParser(description="Split a CSV into train/valid(/test) subsets.")
     p.add_argument("--input", type=pathlib.Path, required=True, help="Original data.csv file")
@@ -47,7 +25,6 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility")
     args = p.parse_args()
 
-    # --- read & shuffle ------------------------------------------------------
     random.seed(args.seed)
     rows = _read_rows(args.input)
     random.shuffle(rows)
@@ -60,13 +37,11 @@ def main() -> None:
     valid_rows = rows[n_test : n_test + n_valid]
     train_rows = rows[n_test + n_valid :]
 
-    # --- write splits --------------------------------------------------------
     _write_rows(train_rows, args.train)
     _write_rows(valid_rows, args.valid)
     if args.test and n_test:
         _write_rows(test_rows, args.test)
 
-    # --- summary -------------------------------------------------------------
     print(f"Total rows : {n_total}")
     print(f"→ train : {len(train_rows)} saved to {args.train}")
     print(f"→ valid : {len(valid_rows)} saved to {args.valid}")
@@ -76,3 +51,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+#python3 split.py --input data.csv --train train.csv --valid valid.csv --test test.csv --seed 42
