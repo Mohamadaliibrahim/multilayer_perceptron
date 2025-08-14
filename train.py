@@ -96,13 +96,25 @@ def plot_learning_curves(train_loss, val_loss, train_acc, val_acc, outfile: str 
     print(f"> {outfile} saved")
 
 
+def should_stop_early(val_loss_history, patience=10, min_delta=0.001):
+    """Check if training should stop early due to no improvement."""
+    if len(val_loss_history) < patience + 1:
+        return False
+    
+    recent_losses = val_loss_history[-patience:]
+    best_recent = min(recent_losses)
+    current = val_loss_history[-1]
+    
+    return current > best_recent + min_delta
+
+
 # ─────────────────────────────── CLI / main ──────────────────────────────────
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--train", required=True, type=pathlib.Path)
     ap.add_argument("--valid", required=True, type=pathlib.Path)
     ap.add_argument("--layer", nargs="+", type=int, default=[64, 32, 16])
-    ap.add_argument("--epochs", type=int, default=70)
+    ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--batch_size", type=int, default=8)
     ap.add_argument("--learning_rate", type=float, default=3.14e-2)
     ap.add_argument("--seed", type=int, default=42)
@@ -137,14 +149,12 @@ def main() -> None:
     train_acc  = []; val_acc  = []
 
     # ─── training loop ───────────────────────────────────────────────────
+    best_val_loss = float('inf')
     for epoch in range(1, args.epochs + 1):
         idx = rng.permutation(len(x_train))
         for start in range(0, len(x_train), args.batch_size):
             batch = idx[start:start + args.batch_size]
-            backprop_batch(
-                x_train[batch], y_train_oh[batch],
-                W, b, lr=args.learning_rate
-            )
+            backprop_batch(x_train[batch], y_train_oh[batch], W, b, lr=args.learning_rate)
 
         # metrics
         p_train = forward(x_train, W, b)
@@ -162,13 +172,27 @@ def main() -> None:
         print(f"epoch {epoch:>{pad}}/{args.epochs} - "
               f"loss: {loss_t:.4f} - val_loss: {loss_v:.4f}")
 
+        # Track best validation loss
+        if loss_v < best_val_loss:
+            best_val_loss = loss_v
+
+        # Early stopping check (but continue for at least 30 epochs)
+        if epoch > 30 and should_stop_early(val_loss, patience=15):
+            print(f"Early stopping at epoch {epoch} (best val_loss: {best_val_loss:.4f})")
+            break
+
+    # Final check - retrain if performance is poor
+    if best_val_loss > 0.08:
+        print(f"\nWarning: Best validation loss ({best_val_loss:.4f}) > 0.08")
+        print("Consider retraining with different hyperparameters or more epochs.")
+
     # ─── save artefacts ──────────────────────────────────────────────────
     np.save("saved_model.npy",
         {"sizes": layer_sizes, "W": W, "b": b,
          "train_loss": train_loss, "val_loss": val_loss,
-         "train_acc": train_acc, "val_acc": val_acc})
-    np.savez("scaler.npz", mu=mu, std=std)
-    print("> saved model (saved_model.npy) and scaler (scaler.npz)")
+         "train_acc": train_acc, "val_acc": val_acc,
+         "mu": mu, "std": std})
+    print("> saved model and scaler in saved_model.npy")
 
     plot_learning_curves(train_loss, val_loss, train_acc, val_acc)
 

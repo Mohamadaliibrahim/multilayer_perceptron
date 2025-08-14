@@ -43,11 +43,16 @@ def main() -> None:
     else:
         raise KeyError(" Could not find weight/bias matrices in saved model")
 
-    try:
-        scaler = np.load("scaler.npz")
-        mu, std = scaler["mu"], scaler["std"]
-    except FileNotFoundError:
-        sys.exit(" scaler.npz not found. Make sure you ran train.py first.")
+    # Load normalization parameters from the same file
+    if "mu" in artefact and "std" in artefact:
+        mu, std = artefact["mu"], artefact["std"]
+    else:
+        # Fallback to old scaler.npz for backward compatibility
+        try:
+            scaler = np.load("scaler.npz")
+            mu, std = scaler["mu"], scaler["std"]
+        except FileNotFoundError:
+            sys.exit(" Normalization parameters not found in model file or scaler.npz")
 
     ids, X, y = read_csv(args.test)
     X = (X - mu) / std
