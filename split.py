@@ -19,7 +19,6 @@ def main() -> None:
     p.add_argument("--input", type=pathlib.Path, required=True, help="Original data.csv file")
     p.add_argument("--train", type=pathlib.Path, default=pathlib.Path("train.csv"))
     p.add_argument("--valid", type=pathlib.Path, default=pathlib.Path("valid.csv"))
-    p.add_argument("--test",  type=pathlib.Path, default=None, help="Optional test CSV path")
     p.add_argument("--val_ratio",  type=float, default=0.20, help="Fraction for validation set")
     p.add_argument("--test_ratio", type=float, default=0.0,  help="Fraction for test set")
     p.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility")
@@ -39,17 +38,13 @@ def main() -> None:
 
     _write_rows(train_rows, args.train)
     _write_rows(valid_rows, args.valid)
-    if args.test and n_test:
-        _write_rows(test_rows, args.test)
 
     print(f"Total rows : {n_total}")
     print(f"→ train : {len(train_rows)} saved to {args.train}")
     print(f"→ valid : {len(valid_rows)} saved to {args.valid}")
-    if args.test and n_test:
-        print(f"→ test  : {len(test_rows)} saved to {args.test}")
 
 
 if __name__ == "__main__":
     main()
 
-#python3 split.py --input data.csv --train train.csv --valid valid.csv --test test.csv --seed 42
+#python3 split.py --input data.csv --train train.csv --valid valid.csv --seed 42

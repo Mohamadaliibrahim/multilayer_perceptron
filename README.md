@@ -237,23 +237,6 @@ python3 train.py --train train.csv --valid valid.csv --layer 128 64 32 --epochs 
 - **`main.py`**: Simple all-in-one training (alternative to train.py)
 - **`data.csv`**: Wisconsin Diagnostic Breast Cancer dataset
 
-## 🤝 Contributing
-
-This project follows 42 School coding standards:
-- Clean, readable code
-- Proper error handling
-- Comprehensive documentation
-- Educational focus
-
-## 📝 License
-
-This project is for educational purposes as part of the 42 School curriculum.
-
----
-
-*Built with ❤️ using pure Python and NumPy for maximum learning value*
-
-## 🎯 Quick Commands Reference
 
 ```bash
 # Complete workflow
