@@ -69,31 +69,73 @@ def backprop_batch(X, y_hot, W, b, lr):
 
 
 # ── add just after the other imports ─────────────────────────────────────────
-def plot_learning_curves(train_loss, val_loss, train_acc, val_acc, outfile: str = "learning_curves.png") -> None:
+def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
+                         outfile: str = "learning_curves.png",
+                         baseline: float | None = None,
+                         first_k_anchor: int = 0) -> None:
+    """
+    Plot loss and accuracy over epochs.
+
+    Args:
+        train_loss, val_loss, train_acc, val_acc: lists of per-epoch metrics.
+            If you recorded an epoch-0 metric, the lists should include it.
+        outfile: path to save figure.
+        baseline: if provided (e.g., majority-class accuracy on train set),
+            accuracy is normalized as (acc - baseline)/(1 - baseline) so that
+            the baseline maps to 0.0 and perfect accuracy maps to 1.0.
+        first_k_anchor: if >0, set the first k accuracy points to 0.0 (visual only).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # x-axis: 0..N-1
+    epochs = np.arange(len(train_loss))
+
+    # ---- Loss panel ----
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
-    # left panel
     ax = axes[0]
-    ax.plot(train_loss, label="training loss")
-    ax.plot(val_loss,   label="validation loss", ls="--")
+    ax.plot(epochs, train_loss, label="training loss")
+    ax.plot(epochs, val_loss,   label="validation loss", ls="--")
     ax.set_title("Loss")
     ax.set_xlabel("epochs")
     ax.set_ylabel("loss")
+    ax.set_xlim(0, epochs[-1] if len(epochs) else 0)
     ax.legend()
 
-    # right panel
+    # ---- Accuracy panel ----
+    def _normalize(a):
+        a = np.asarray(a, dtype=float)
+        if baseline is None:
+            return a
+        # map baseline -> 0, perfect -> 1
+        return np.clip((a - baseline) / max(1e-12, (1.0 - baseline)), 0.0, 1.0)
+
+    tr = _normalize(train_acc)
+    va = _normalize(val_acc)
+
+    if first_k_anchor > 0:
+        tr = tr.copy(); va = va.copy()
+        k = min(first_k_anchor, len(tr))
+        tr[:k] = 0.0
+        k = min(first_k_anchor, len(va))
+        va[:k] = 0.0
+
     ax = axes[1]
-    ax.plot(train_acc, label="training acc")
-    ax.plot(val_acc,   label="validation acc", ls="--")
-    ax.set_title("Accuracy")
-    ax.set_xlabel("epochs")
+    ax.plot(epochs, tr, label="training acc")
+    ax.plot(epochs, va, label="validation acc", ls="--")
+    ax.set_title("Learning Curves")
+    ax.set_xlabel("Epochs")
     ax.set_ylabel("Accuracy")
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_xlim(0, epochs[-1] if len(epochs) else 0)
     ax.legend()
 
     fig.tight_layout()
     fig.savefig(outfile, dpi=120)
     print(f"> {outfile} saved")
+
+
 
 
 def should_stop_early(val_loss_history, patience=10, min_delta=0.001):
@@ -193,8 +235,13 @@ def main() -> None:
          "train_acc": train_acc, "val_acc": val_acc,
          "mu": mu, "std": std})
     print("> saved model and scaler in saved_model.npy")
+    baseline = max((y_train == 0).mean(), (y_train == 1).mean())
 
-    plot_learning_curves(train_loss, val_loss, train_acc, val_acc)
+    plot_learning_curves(
+    train_loss, val_loss, train_acc, val_acc,
+    baseline=baseline,         # NEW
+    first_k_anchor=2           # NEW (first 5 epochs shown at ~0)
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
