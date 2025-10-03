@@ -22,7 +22,6 @@ def parse_csv(path: pathlib.Path) -> tuple[np.ndarray, np.ndarray]:
     return np.asarray(feats, dtype=np.float64), np.asarray(labels, dtype=np.int64)
 
 
-# ───────────────────────── network as free functions ─────────────────────────
 def init_params(layer_sizes: list[int], rng: np.random.Generator):
     """He-uniform initialisation for every layer."""
     W, b = [], []
@@ -41,9 +40,9 @@ def forward_all(X: np.ndarray, W: list[np.ndarray], b: list[np.ndarray]):
     for l in range(L):
         Z = A @ W[l] + b[l]
         zs.append(Z)
-        if l == L - 1:          # output layer → soft-max
+        if l == L - 1:
             A = softmax(Z)
-        else:                   # hidden layers → sigmoid
+        else:
             A = stable_sigmoid(Z)
         activations.append(A)
     return zs, activations
@@ -53,7 +52,7 @@ def backprop_batch(X, y_hot, W, b, lr):
     B = X.shape[0]
     zs, as_ = forward_all(X, W, b)
 
-    delta = (as_[-1] - y_hot) / B                # output layer
+    delta = (as_[-1] - y_hot) / B
     L = len(W)
 
     for l in reversed(range(L)):
@@ -67,8 +66,6 @@ def backprop_batch(X, y_hot, W, b, lr):
             delta = (delta @ W[l].T) * sigmoid_prime(as_[l])
 
 
-
-# ── add just after the other imports ─────────────────────────────────────────
 def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
                          outfile: str = "learning_curves.png",
                          baseline: float | None = None,
@@ -88,10 +85,8 @@ def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
     import numpy as np
     import matplotlib.pyplot as plt
 
-    # x-axis: 0..N-1
     epochs = np.arange(len(train_loss))
 
-    # ---- Loss panel ----
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
     ax = axes[0]
@@ -103,12 +98,10 @@ def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
     ax.set_xlim(0, epochs[-1] if len(epochs) else 0)
     ax.legend()
 
-    # ---- Accuracy panel ----
     def _normalize(a):
         a = np.asarray(a, dtype=float)
         if baseline is None:
             return a
-        # map baseline -> 0, perfect -> 1
         return np.clip((a - baseline) / max(1e-12, (1.0 - baseline)), 0.0, 1.0)
 
     tr = _normalize(train_acc)
@@ -150,7 +143,6 @@ def should_stop_early(val_loss_history, patience=10, min_delta=0.001):
     return current > best_recent + min_delta
 
 
-# ─────────────────────────────── CLI / main ──────────────────────────────────
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--train", required=True, type=pathlib.Path)
@@ -167,7 +159,6 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed)
 
-    # ─── load & scale data ────────────────────────────────────────────────
     x_train, y_train = parse_csv(args.train)
     x_valid, y_valid = parse_csv(args.valid)
     print(f"x_train shape : {x_train.shape}")
@@ -182,7 +173,6 @@ def main() -> None:
     y_train_oh = np.eye(n_out)[y_train]
     y_valid_oh = np.eye(n_out)[y_valid]
 
-    # ─── initialise parameters ───────────────────────────────────────────
     layer_sizes = [x_train.shape[1], *args.layer, n_out]
     W, b = init_params(layer_sizes, rng)
 
@@ -190,7 +180,6 @@ def main() -> None:
     train_loss = []; val_loss = []
     train_acc  = []; val_acc  = []
 
-    # ─── training loop ───────────────────────────────────────────────────
     best_val_loss = float('inf')
     for epoch in range(1, args.epochs + 1):
         idx = rng.permutation(len(x_train))
@@ -198,7 +187,6 @@ def main() -> None:
             batch = idx[start:start + args.batch_size]
             backprop_batch(x_train[batch], y_train_oh[batch], W, b, lr=args.learning_rate)
 
-        # metrics
         p_train = forward(x_train, W, b)
         p_valid = forward(x_valid, W, b)
 
@@ -214,21 +202,17 @@ def main() -> None:
         print(f"epoch {epoch:>{pad}}/{args.epochs} - "
               f"loss: {loss_t:.4f} - val_loss: {loss_v:.4f}")
 
-        # Track best validation loss
         if loss_v < best_val_loss:
             best_val_loss = loss_v
 
-        # Early stopping check (but continue for at least 30 epochs)
         if epoch > 30 and should_stop_early(val_loss, patience=15):
             print(f"Early stopping at epoch {epoch} (best val_loss: {best_val_loss:.4f})")
             break
 
-    # Final check - retrain if performance is poor
     if best_val_loss > 0.08:
         print(f"\nWarning: Best validation loss ({best_val_loss:.4f}) > 0.08")
         print("Consider retraining with different hyperparameters or more epochs.")
 
-    # ─── save artefacts ──────────────────────────────────────────────────
     np.save("saved_model.npy",
         {"sizes": layer_sizes, "W": W, "b": b,
          "train_loss": train_loss, "val_loss": val_loss,
@@ -239,12 +223,11 @@ def main() -> None:
 
     plot_learning_curves(
     train_loss, val_loss, train_acc, val_acc,
-    baseline=baseline,         # NEW
-    first_k_anchor=2           # NEW (first 5 epochs shown at ~0)
+    baseline=baseline,
+    first_k_anchor=2
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     try:
         main()

@@ -43,11 +43,9 @@ def main() -> None:
     else:
         raise KeyError(" Could not find weight/bias matrices in saved model")
 
-    # Load normalization parameters from the same file
     if "mu" in artefact and "std" in artefact:
         mu, std = artefact["mu"], artefact["std"]
     else:
-        # Fallback to old scaler.npz for backward compatibility
         try:
             scaler = np.load("scaler.npz")
             mu, std = scaler["mu"], scaler["std"]
