@@ -20,8 +20,6 @@ def forward(X, W, b):
         A = softmax(Z) if i == len(W)-1 else stable_sigmoid(Z)
     return A
 
-import numpy as np
-
 def cross_entropy(pred, y_hot):
     eps = 1e-12
     total_loss = 0.0
