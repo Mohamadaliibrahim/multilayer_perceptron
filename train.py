@@ -1,5 +1,4 @@
 import argparse, csv, pathlib, sys
-import matplotlib.pyplot as plt
 import numpy as np
 from rules import stable_sigmoid, softmax, cross_entropy, forward, sigmoid_prime
 import matplotlib.pyplot as plt
@@ -70,20 +69,6 @@ def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
                          outfile: str = "learning_curves.png",
                          baseline: float | None = None,
                          first_k_anchor: int = 0) -> None:
-    """
-    Plot loss and accuracy over epochs.
-
-    Args:
-        train_loss, val_loss, train_acc, val_acc: lists of per-epoch metrics.
-            If you recorded an epoch-0 metric, the lists should include it.
-        outfile: path to save figure.
-        baseline: if provided (e.g., majority-class accuracy on train set),
-            accuracy is normalized as (acc - baseline)/(1 - baseline) so that
-            the baseline maps to 0.0 and perfect accuracy maps to 1.0.
-        first_k_anchor: if >0, set the first k accuracy points to 0.0 (visual only).
-    """
-    import numpy as np
-    import matplotlib.pyplot as plt
 
     epochs = np.arange(len(train_loss))
 
