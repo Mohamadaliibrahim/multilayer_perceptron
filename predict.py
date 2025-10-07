@@ -25,7 +25,6 @@ def read_csv(path: pathlib.Path):
     ids = np.asarray(ids, dtype=object)
     return ids, feats, labels
 
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, type=pathlib.Path,
@@ -73,6 +72,5 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         sys.exit("\nInterrupted by user")
-
 
 #python3 predict.py --model saved_model.npy --test valid.csv

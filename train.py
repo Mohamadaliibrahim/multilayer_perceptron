@@ -20,7 +20,6 @@ def parse_csv(path: pathlib.Path) -> tuple[np.ndarray, np.ndarray]:
 
     return np.asarray(feats, dtype=np.float64), np.asarray(labels, dtype=np.int64)
 
-
 def init_params(layer_sizes: list[int], rng: np.random.Generator):
     """He-uniform initialisation for every layer."""
     W, b = [], []
@@ -29,7 +28,6 @@ def init_params(layer_sizes: list[int], rng: np.random.Generator):
         W.append(rng.uniform(-limit, limit, size=(n_in, n_out)))
         b.append(np.zeros(n_out))
     return W, b
-
 
 def forward_all(X: np.ndarray, W: list[np.ndarray], b: list[np.ndarray]):
     """Return (zs, activations) for the whole net."""
@@ -63,7 +61,6 @@ def backprop_batch(X, y_hot, W, b, lr):
 
         if l != 0:
             delta = (delta @ W[l].T) * sigmoid_prime(as_[l])
-
 
 def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
                          outfile: str = "learning_curves.png",
@@ -112,9 +109,6 @@ def plot_learning_curves(train_loss, val_loss, train_acc, val_acc,
     fig.tight_layout()
     fig.savefig(outfile, dpi=120)
     print(f"> {outfile} saved")
-
-
-
 
 def should_stop_early(val_loss_history, patience=10, min_delta=0.001):
     """Check if training should stop early due to no improvement."""
@@ -211,7 +205,6 @@ def main() -> None:
     baseline=baseline,
     first_k_anchor=2
 )
-
 
 if __name__ == "__main__":
     try:

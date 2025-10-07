@@ -37,7 +37,6 @@ def cross_entropy(pred, y_hot):
 
     return total_loss / N
 
-
 def sigmoid_prime(a: np.ndarray) -> np.ndarray:
     """Derivative w.r.t. the *activation* (already σ(z))."""
     return a * (1.0 - a)

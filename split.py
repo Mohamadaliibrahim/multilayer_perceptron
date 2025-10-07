@@ -7,7 +7,6 @@ def _read_rows(path: pathlib.Path) -> List[List[str]]:
         reader = csv.reader(f)
         return [row for row in reader if row]
 
-
 def _write_rows(rows: List[List[str]], path: pathlib.Path) -> None:
     """Write *rows* to *path* in CSV format (overwrites any existing file)."""
     with path.open("w", newline="") as f:
@@ -42,7 +41,6 @@ def main() -> None:
     print(f"Total rows : {n_total}")
     print(f"→ train : {len(train_rows)} saved to {args.train}")
     print(f"→ valid : {len(valid_rows)} saved to {args.valid}")
-
 
 if __name__ == "__main__":
     main()
